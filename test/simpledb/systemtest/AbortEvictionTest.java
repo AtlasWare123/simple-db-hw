@@ -5,16 +5,25 @@ import java.io.IOException;
 import simpledb.*;
 
 import static org.junit.Assert.*;
+
 import org.junit.Test;
 
 public class AbortEvictionTest extends SimpleDbTestBase {
-    /** Aborts a transaction and ensures that its effects were actually undone.
+    /**
+     * Make test compatible with older version of ant.
+     */
+    public static junit.framework.Test suite() {
+        return new junit.framework.JUnit4TestAdapter(AbortEvictionTest.class);
+    }
+
+    /**
+     * Aborts a transaction and ensures that its effects were actually undone.
      * This requires dirty pages to <em>not</em> get flushed to disk.
      */
-    @Test public void testDoNotEvictDirtyPages()
-            throws IOException, DbException, TransactionAbortedException {
+    @Test
+    public void testDoNotEvictDirtyPages() throws IOException, DbException, TransactionAbortedException {
         // Allocate a file with ~10 pages of data
-        HeapFile f = SystemTestUtil.createRandomHeapFile(2, 512*10, null, null);
+        HeapFile f = SystemTestUtil.createRandomHeapFile(2, 512 * 10, null, null);
         Database.resetBufferPool(2);
 
         // BEGIN TRANSACTION
@@ -36,10 +45,5 @@ public class AbortEvictionTest extends SimpleDbTestBase {
         found = EvictionTest.findMagicTuple(f, t);
         assertFalse(found);
         t.commit();
-    }
-
-    /** Make test compatible with older version of ant. */
-    public static junit.framework.Test suite() {
-        return new junit.framework.JUnit4TestAdapter(AbortEvictionTest.class);
     }
 }

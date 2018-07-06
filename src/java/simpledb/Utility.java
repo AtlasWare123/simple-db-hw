@@ -4,7 +4,9 @@ import java.io.*;
 import java.util.ArrayList;
 import java.util.UUID;
 
-/** Helper methods used for testing and implementing random features. */
+/**
+ * Helper methods used for testing and implementing random features.
+ */
 public class Utility {
     /**
      * @return a Type array of length len populated with Type.INT_TYPE
@@ -44,7 +46,7 @@ public class Utility {
 
     /**
      * @return a Tuple with a single IntField with value n and with
-     *   RecordId(HeapPageId(1,2), 3)
+     * RecordId(HeapPageId(1,2), 3)
      */
     public static Tuple getHeapTuple(int n) {
         Tuple tup = new Tuple(getTupleDesc(1));
@@ -55,7 +57,7 @@ public class Utility {
 
     /**
      * @return a Tuple with an IntField for every element of tupdata
-     *   and RecordId(HeapPageId(1, 2), 3)
+     * and RecordId(HeapPageId(1, 2), 3)
      */
     public static Tuple getHeapTuple(int[] tupdata) {
         Tuple tup = new Tuple(getTupleDesc(tupdata.length));
@@ -67,7 +69,7 @@ public class Utility {
 
     /**
      * @return a Tuple with a 'width' IntFields each with value n and
-     *   with RecordId(HeapPageId(1, 2), 3)
+     * with RecordId(HeapPageId(1, 2), 3)
      */
     public static Tuple getHeapTuple(int n, int width) {
         Tuple tup = new Tuple(getTupleDesc(width));
@@ -79,12 +81,12 @@ public class Utility {
 
     /**
      * @return a Tuple with a 'width' IntFields with the value tupledata[i]
-     *         in each field.
-     *         do not set it's RecordId, hence do not distinguish which
-     *         sort of file it belongs to.
+     * in each field.
+     * do not set it's RecordId, hence do not distinguish which
+     * sort of file it belongs to.
      */
     public static Tuple getTuple(int[] tupledata, int width) {
-        if(tupledata.length != width) {
+        if (tupledata.length != width) {
             System.out.println("get Hash Tuple has the wrong length~");
             System.exit(1);
         }
@@ -100,8 +102,7 @@ public class Utility {
      * will be overwritten. The new table will be added to the Catalog with
      * the specified number of columns as IntFields.
      */
-    public static HeapFile createEmptyHeapFile(String path, int cols)
-        throws IOException {
+    public static HeapFile createEmptyHeapFile(String path, int cols) throws IOException {
         File f = new File(path);
         // touch the file
         FileOutputStream fos = new FileOutputStream(f);
@@ -123,23 +124,24 @@ public class Utility {
         return hf;
     }
 
-    /** Opens a HeapFile and adds it to the catalog.
+    /**
+     * Opens a HeapFile and adds it to the catalog.
      *
      * @param cols number of columns in the table.
-     * @param f location of the file storing the table.
+     * @param f    location of the file storing the table.
      * @return the opened table.
      */
     public static HeapFile openHeapFile(int cols, File f) {
         // create the HeapFile and add it to the catalog
-    	TupleDesc td = getTupleDesc(cols);
+        TupleDesc td = getTupleDesc(cols);
         HeapFile hf = new HeapFile(f, td);
         Database.getCatalog().addTable(hf, UUID.randomUUID().toString());
         return hf;
     }
-    
+
     public static HeapFile openHeapFile(int cols, String colPrefix, File f) {
         // create the HeapFile and add it to the catalog
-    	TupleDesc td = getTupleDesc(cols, colPrefix);
+        TupleDesc td = getTupleDesc(cols, colPrefix);
         HeapFile hf = new HeapFile(f, td);
         Database.getCatalog().addTable(hf, UUID.randomUUID().toString());
         return hf;
@@ -148,7 +150,8 @@ public class Utility {
     public static String listToString(ArrayList<Integer> list) {
         String out = "";
         for (Integer i : list) {
-            if (out.length() > 0) out += "\t";
+            if (out.length() > 0)
+                out += "\t";
             out += i;
         }
         return out;

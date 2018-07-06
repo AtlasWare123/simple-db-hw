@@ -4,10 +4,18 @@ import static org.junit.Assert.*;
 
 import java.io.IOException;
 import java.util.ArrayList;
+
 import simpledb.*;
 
 public class DeleteTest extends FilterBase {
     ArrayList<ArrayList<Integer>> expectedTuples = null;
+
+    /**
+     * Make test compatible with older version of ant.
+     */
+    public static junit.framework.Test suite() {
+        return new junit.framework.JUnit4TestAdapter(DeleteTest.class);
+    }
 
     @Override
     protected int applyPredicate(HeapFile table, TransactionId tid, Predicate predicate)
@@ -15,9 +23,9 @@ public class DeleteTest extends FilterBase {
         SeqScan ss = new SeqScan(tid, table.getId(), "");
         Filter filter = new Filter(predicate, ss);
         Delete deleteOperator = new Delete(tid, filter);
-//        Query q = new Query(deleteOperator, tid);
+        //        Query q = new Query(deleteOperator, tid);
 
-//        q.start();
+        //        q.start();
         deleteOperator.open();
         boolean hasResult = false;
         int result = -1;
@@ -45,14 +53,8 @@ public class DeleteTest extends FilterBase {
     }
 
     @Override
-    protected void validateAfter(HeapFile table)
-            throws DbException, TransactionAbortedException, IOException {
+    protected void validateAfter(HeapFile table) throws DbException, TransactionAbortedException, IOException {
         // As part of a different transaction, scan the table
         SystemTestUtil.matchTuples(table, expectedTuples);
-    }
-
-    /** Make test compatible with older version of ant. */
-    public static junit.framework.Test suite() {
-        return new junit.framework.JUnit4TestAdapter(DeleteTest.class);
     }
 }

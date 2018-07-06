@@ -4,17 +4,26 @@ import simpledb.systemtest.SimpleDbTestBase;
 import simpledb.systemtest.SystemTestUtil;
 
 import java.util.*;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
+
 import junit.framework.JUnit4TestAdapter;
 
 public class HeapFileReadTest extends SimpleDbTestBase {
     private HeapFile hf;
     private TransactionId tid;
     private TupleDesc td;
+
+    /**
+     * JUnit suite target
+     */
+    public static junit.framework.Test suite() {
+        return new JUnit4TestAdapter(HeapFileReadTest.class);
+    }
 
     /**
      * Set up initial resources for each unit test.
@@ -50,9 +59,10 @@ public class HeapFileReadTest extends SimpleDbTestBase {
      * Unit test for HeapFile.getTupleDesc()
      */
     @Test
-    public void getTupleDesc() throws Exception {    	
-        assertEquals(td, hf.getTupleDesc());        
+    public void getTupleDesc() throws Exception {
+        assertEquals(td, hf.getTupleDesc());
     }
+
     /**
      * Unit test for HeapFile.numPages()
      */
@@ -79,8 +89,7 @@ public class HeapFileReadTest extends SimpleDbTestBase {
 
     @Test
     public void testIteratorBasic() throws Exception {
-        HeapFile smallFile = SystemTestUtil.createRandomHeapFile(2, 3, null,
-                null);
+        HeapFile smallFile = SystemTestUtil.createRandomHeapFile(2, 3, null, null);
 
         DbFileIterator it = smallFile.iterator(tid);
         // Not open yet
@@ -105,8 +114,7 @@ public class HeapFileReadTest extends SimpleDbTestBase {
     public void testIteratorClose() throws Exception {
         // make more than 1 page. Previous closed iterator would start fetching
         // from page 1.
-        HeapFile twoPageFile = SystemTestUtil.createRandomHeapFile(2, 520,
-                null, null);
+        HeapFile twoPageFile = SystemTestUtil.createRandomHeapFile(2, 520, null, null);
 
         DbFileIterator it = twoPageFile.iterator(tid);
         it.open();
@@ -119,12 +127,5 @@ public class HeapFileReadTest extends SimpleDbTestBase {
         }
         // close twice is harmless
         it.close();
-    }
-
-    /**
-     * JUnit suite target
-     */
-    public static junit.framework.Test suite() {
-        return new JUnit4TestAdapter(HeapFileReadTest.class);
     }
 }

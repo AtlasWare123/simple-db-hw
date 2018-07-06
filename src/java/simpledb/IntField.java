@@ -6,14 +6,10 @@ import java.io.*;
  * Instance of Field that stores a single integer.
  */
 public class IntField implements Field {
-    
-	private static final long serialVersionUID = 1L;
-	
-	private final int value;
 
-    public int getValue() {
-        return value;
-    }
+    private static final long serialVersionUID = 1L;
+
+    private final int value;
 
     /**
      * Constructor.
@@ -22,6 +18,10 @@ public class IntField implements Field {
      */
     public IntField(int i) {
         value = i;
+    }
+
+    public int getValue() {
+        return value;
     }
 
     public String toString() {
@@ -69,8 +69,8 @@ public class IntField implements Field {
         case LESS_THAN_OR_EQ:
             return value <= iVal.value;
 
-    case LIKE:
-        return value == iVal.value;
+        case LIKE:
+            return value == iVal.value;
         }
 
         return false;
@@ -78,9 +78,10 @@ public class IntField implements Field {
 
     /**
      * Return the Type of this field.
+     *
      * @return Type.INT_TYPE
      */
-	public Type getType() {
-		return Type.INT_TYPE;
-	}
+    public Type getType() {
+        return Type.INT_TYPE;
+    }
 }

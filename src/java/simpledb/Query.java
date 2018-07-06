@@ -8,38 +8,17 @@ import java.util.*;
  * plan in the form of a high level OpIterator (built by initiating the
  * constructors of query plans) and runs it as a part of a specified
  * transaction.
- * 
+ *
  * @author Sam Madden
  */
 
 public class Query implements Serializable {
 
     private static final long serialVersionUID = 1L;
-
+    TransactionId tid;
     transient private OpIterator op;
     transient private LogicalPlan logicalPlan;
-    TransactionId tid;
     transient private boolean started = false;
-
-    public TransactionId getTransactionId() {
-        return this.tid;
-    }
-
-    public void setLogicalPlan(LogicalPlan lp) {
-        this.logicalPlan = lp;
-    }
-
-    public LogicalPlan getLogicalPlan() {
-        return this.logicalPlan;
-    }
-
-    public void setPhysicalPlan(OpIterator pp) {
-        this.op = pp;
-    }
-
-    public OpIterator getPhysicalPlan() {
-        return this.op;
-    }
 
     public Query(TransactionId t) {
         tid = t;
@@ -50,8 +29,27 @@ public class Query implements Serializable {
         tid = t;
     }
 
-    public void start() throws IOException, DbException,
-            TransactionAbortedException {
+    public TransactionId getTransactionId() {
+        return this.tid;
+    }
+
+    public LogicalPlan getLogicalPlan() {
+        return this.logicalPlan;
+    }
+
+    public void setLogicalPlan(LogicalPlan lp) {
+        this.logicalPlan = lp;
+    }
+
+    public OpIterator getPhysicalPlan() {
+        return this.op;
+    }
+
+    public void setPhysicalPlan(OpIterator pp) {
+        this.op = pp;
+    }
+
+    public void start() throws IOException, DbException, TransactionAbortedException {
         op.open();
 
         started = true;
@@ -61,7 +59,9 @@ public class Query implements Serializable {
         return this.op.getTupleDesc();
     }
 
-    /** @return true if there are more tuples remaining. */
+    /**
+     * @return true if there are more tuples remaining.
+     */
     public boolean hasNext() throws DbException, TransactionAbortedException {
         return op.hasNext();
     }
@@ -69,24 +69,22 @@ public class Query implements Serializable {
     /**
      * Returns the next tuple, or throws NoSuchElementException if the iterator
      * is closed.
-     * 
+     *
      * @return The next tuple in the iterator
-     * @throws DbException
-     *             If there is an error in the database system
-     * @throws NoSuchElementException
-     *             If the iterator has finished iterating
-     * @throws TransactionAbortedException
-     *             If the transaction is aborted (e.g., due to a deadlock)
+     * @throws DbException                 If there is an error in the database system
+     * @throws NoSuchElementException      If the iterator has finished iterating
+     * @throws TransactionAbortedException If the transaction is aborted (e.g., due to a deadlock)
      */
-    public Tuple next() throws DbException, NoSuchElementException,
-            TransactionAbortedException {
+    public Tuple next() throws DbException, NoSuchElementException, TransactionAbortedException {
         if (!started)
             throw new DbException("Database not started.");
 
         return op.next();
     }
 
-    /** Close the iterator */
+    /**
+     * Close the iterator
+     */
     public void close() throws IOException {
         op.close();
         started = false;
