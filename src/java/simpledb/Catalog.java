@@ -5,11 +5,11 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * The Catalog keeps track of all available tables in the database and their
@@ -33,10 +33,10 @@ public class Catalog {
      */
     public Catalog() {
         // some code goes here
-        this.tableIdToDbFile = new HashMap<>();
-        this.nameToTableId = new HashMap<>();
-        this.tableIdToName = new HashMap<>();
-        this.tableIdToPkeyField = new HashMap<>();
+        this.tableIdToDbFile = new ConcurrentHashMap<>();
+        this.nameToTableId = new ConcurrentHashMap<>();
+        this.tableIdToName = new ConcurrentHashMap<>();
+        this.tableIdToPkeyField = new ConcurrentHashMap<>();
     }
 
     /**
