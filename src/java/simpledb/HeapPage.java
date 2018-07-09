@@ -1,7 +1,16 @@
 package simpledb;
 
-import java.util.*;
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * Each instance of HeapPage stores data for one page of HeapFiles and
@@ -82,8 +91,7 @@ public class HeapPage implements Page {
      */
     private int getNumTuples() {
         // some code goes here
-        return 0;
-
+        return (BufferPool.getPageSize() * 8) / (this.td.getSize() * 8 + 1);
     }
 
     /**
@@ -92,10 +100,8 @@ public class HeapPage implements Page {
      * @return the number of bytes in the header of a page in a HeapFile with each tuple occupying tupleSize bytes
      */
     private int getHeaderSize() {
-
         // some code goes here
-        return 0;
-
+        return (this.getNumTuples() + 7) / 8;
     }
 
     /**
@@ -128,7 +134,7 @@ public class HeapPage implements Page {
      */
     public HeapPageId getId() {
         // some code goes here
-        throw new UnsupportedOperationException("implement this");
+        return this.pid;
     }
 
     /**
@@ -287,7 +293,17 @@ public class HeapPage implements Page {
      */
     public int getNumEmptySlots() {
         // some code goes here
-        return 0;
+        int total = 0;
+        for (byte item : this.header) {
+            byte tmp = item;
+            int cnt = 0;
+            while (tmp != 0) {
+                tmp &= tmp - 1;
+                cnt++;
+            }
+            total += 8 - cnt;
+        }
+        return total;
     }
 
     /**
@@ -295,7 +311,7 @@ public class HeapPage implements Page {
      */
     public boolean isSlotUsed(int i) {
         // some code goes here
-        return false;
+        return (this.header[i / 8] & (1 << (i % 8))) != 0;
     }
 
     /**
@@ -312,8 +328,9 @@ public class HeapPage implements Page {
      */
     public Iterator<Tuple> iterator() {
         // some code goes here
-        return null;
+        TupleIterator iter = new TupleIterator(this.td, Arrays.stream(this.tuples).filter(Objects::nonNull).collect(Collectors.toList()));
+        iter.open();
+        return iter.i;
     }
-
 }
 

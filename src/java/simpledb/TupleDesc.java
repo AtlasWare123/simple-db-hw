@@ -126,7 +126,7 @@ public class TupleDesc implements Serializable {
      */
     public int getSize() {
         // some code goes here
-        return this.tdItems.size();
+        return this.tdItems.stream().map(e -> e.fieldType.getLen()).reduce(0, Integer::sum);
     }
 
     /**
