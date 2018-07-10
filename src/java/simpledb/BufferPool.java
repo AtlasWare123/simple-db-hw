@@ -2,6 +2,7 @@ package simpledb;
 
 import java.io.*;
 
+import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -75,11 +76,18 @@ public class BufferPool {
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
             throws TransactionAbortedException, DbException {
         // some code goes here
-        if (this.pageIdToPage.containsKey(pid)) {
-            return this.pageIdToPage.get(pid);
-        } else {
-            throw new DbException(String.format("PageId %s doesn't exist", pid));
+        if (!this.pageIdToPage.containsKey(pid)) {
+            if (this.pageIdToPage.size() >= this.numPages) {
+                Iterator<Map.Entry<PageId, Page>> iter = this.pageIdToPage.entrySet().iterator();
+                if (iter.hasNext()) {
+                    iter.remove();
+                } else {
+                    throw new DbException("Unable to remove an item in cache");
+                }
+            }
+            this.pageIdToPage.put(pid, Database.getCatalog().getDatabaseFile(pid.getTableId()).readPage(pid));
         }
+        return this.pageIdToPage.get(pid);
     }
 
     /**

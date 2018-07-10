@@ -73,11 +73,11 @@ public class HeapFile implements DbFile {
             throw new NoSuchElementException(String.format("Page number: %d doesn't exist", pid.getPageNumber()));
         }
         RandomAccessFile fin = null;
-        byte[] data = HeapPage.createEmptyPageData();
+        byte[] data = new byte[BufferPool.getPageSize()];
         try {
             fin = new RandomAccessFile(this.file, "r");
-            data = new byte[BufferPool.getPageSize()];
-            fin.read(data, pid.getPageNumber() * BufferPool.getPageSize(), BufferPool.getPageSize());
+            fin.skipBytes(pid.getPageNumber() * BufferPool.getPageSize());
+            fin.read(data, 0, data.length);
         } catch (IOException e) {
             e.printStackTrace();
         } finally {
@@ -138,7 +138,7 @@ public class HeapFile implements DbFile {
                 this.curPage = 0;
                 while (this.curPage < numPages()) {
                     if (this.iter == null) {
-                        this.iter = ((HeapPage)readPage(new HeapPageId(getId(), this.curPage))).iterator();
+                        this.iter = ((HeapPage) Database.getBufferPool().getPage(null, new HeapPageId(getId(), this.curPage), null)).iterator();
                     }
                     if (!this.iter.hasNext()) {
                         this.curPage++;
@@ -166,7 +166,7 @@ public class HeapFile implements DbFile {
                 if (!this.iter.hasNext()) {
                     this.curPage++;
                     while (this.curPage < numPages()) {
-                        this.iter = ((HeapPage) readPage(new HeapPageId(getId(), this.curPage))).iterator();
+                        this.iter = ((HeapPage) Database.getBufferPool().getPage(null, new HeapPageId(getId(), this.curPage), null)).iterator();
                         if (!this.iter.hasNext()) {
                             this.curPage++;
                         } else {
@@ -182,8 +182,8 @@ public class HeapFile implements DbFile {
 
             @Override
             public void rewind() throws DbException, TransactionAbortedException {
-                this.curPage = 0;
-                this.iter = null;
+                close();
+                open();
             }
 
             @Override
