@@ -51,7 +51,18 @@ public class TupleDesc implements Serializable {
      */
     public static TupleDesc merge(TupleDesc td1, TupleDesc td2) {
         // some code goes here
-        return null;
+        Type[] types = new Type[td1.numFields() + td2.numFields()];
+        String[] fields = new String[td1.numFields() + td2.numFields()];
+        for (int i=0; i<td1.numFields(); i++) {
+            types[i] = td1.getFieldType(i);
+            fields[i] = td1.getFieldName(i);
+        }
+        int offset = td1.numFields();
+        for (int i=0; i<td2.numFields(); i++) {
+            types[offset + i] = td2.getFieldType(i);
+            fields[offset + i] = td2.getFieldName(i);
+        }
+        return new TupleDesc(types, fields);
     }
 
     /**
@@ -113,7 +124,7 @@ public class TupleDesc implements Serializable {
         // some code goes here
         if (name == null) throw new NoSuchElementException("name should not be null");
         for (int i=0; i<this.tdItems.size(); i++) {
-            if (name.equals(this.tdItems.get(i))) {
+            if (name.equals(this.tdItems.get(i).fieldName)) {
                 return i;
             }
         }
@@ -158,7 +169,7 @@ public class TupleDesc implements Serializable {
     public int hashCode() {
         // If you want to use TupleDesc as keys for HashMap, implement this so
         // that equal objects have equals hashCode() results
-        throw new UnsupportedOperationException("unimplemented");
+        return this.tdItems.hashCode();
     }
 
     /**
@@ -170,7 +181,14 @@ public class TupleDesc implements Serializable {
      */
     public String toString() {
         // some code goes here
-        return "";
+        StringBuilder sb = new StringBuilder();
+        for (int i=0; i<this.tdItems.size(); i++) {
+            if (i > 0) {
+                sb.append(", ");
+            }
+            sb.append(this.tdItems.get(i).toString());
+        }
+        return sb.toString();
     }
 
     /**
