@@ -101,6 +101,22 @@ public class HeapFile implements DbFile {
     public void writePage(Page page) throws IOException {
         // some code goes here
         // not necessary for lab1
+        RandomAccessFile fout = null;
+        try {
+            fout = new RandomAccessFile(this.file, "rw");
+            fout.skipBytes(page.getId().getPageNumber() * BufferPool.getPageSize());
+            fout.write(page.getPageData());
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            if (fout != null) {
+                try {
+                    fout.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
     }
 
     /**
@@ -115,15 +131,37 @@ public class HeapFile implements DbFile {
     public ArrayList<Page> insertTuple(TransactionId tid, Tuple t)
             throws DbException, IOException, TransactionAbortedException {
         // some code goes here
-        return null;
         // not necessary for lab1
+        for (int i = 0; i <= this.numPages(); i++) {
+            HeapPageId hpId = new HeapPageId(getId(), i);  // HeapFile id is associated with table id
+            HeapPage page = i < this.numPages ?
+                    (HeapPage) Database.getBufferPool().getPage(tid, hpId, Permissions.READ_WRITE) :
+                    new HeapPage(new HeapPageId(this.getId(), i), HeapPage.createEmptyPageData());
+            if (page.getNumEmptySlots() > 0) {
+                if (i == this.numPages()) {
+                    this.numPages++;
+                }
+                page.insertTuple(t);
+                page.markDirty(true, tid);
+                this.writePage(page);
+                return new ArrayList<>(Collections.singletonList(page));
+            }
+        }
+        throw new DbException("Failed to insert this tuple");
     }
 
     // see DbFile.java for javadocs
     public ArrayList<Page> deleteTuple(TransactionId tid, Tuple t) throws DbException, TransactionAbortedException {
         // some code goes here
-        return null;
         // not necessary for lab1
+        PageId pid = t.getRecordId().getPageId();
+        if (pid.getTableId() != this.getId() || pid.getPageNumber() >= this.numPages()) {
+            throw new DbException("The tuple doesn't exist in this table");
+        }
+        HeapPage page = (HeapPage) Database.getBufferPool().getPage(tid, pid, Permissions.READ_WRITE);
+        page.deleteTuple(t);
+        page.markDirty(true, tid);
+        return new ArrayList<>(Collections.singleton(page));
     }
 
     // see DbFile.java for javadocs
