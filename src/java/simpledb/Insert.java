@@ -45,10 +45,12 @@ public class Insert extends Operator {
             throw new DbException("OpIterator is null, can't be opened");
         }
         this.child.open();
+        super.open();
     }
 
     public void close() {
         // some code goes here
+        super.close();
         if (this.child != null) {
             this.child.close();
         }
@@ -84,7 +86,7 @@ public class Insert extends Operator {
         this.called = true;
         DbFile dbFile = Database.getCatalog().getDatabaseFile(this.tableId);
         int cnt = 0;
-        while (child.hasNext()) {
+        while (this.child.hasNext()) {
             try {
                 dbFile.insertTuple(this.tid, this.child.next());
                 cnt++;
