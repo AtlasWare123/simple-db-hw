@@ -17,7 +17,6 @@ public class HeapFile implements DbFile {
 
     private File file;
     private TupleDesc td;
-    private int numPages;
 
     /**
      * Constructs a heap file backed by the specified file.
@@ -29,7 +28,6 @@ public class HeapFile implements DbFile {
         // some code goes here
         this.file = f;
         this.td = td;
-        this.numPages = (int)((f.length() + BufferPool.getPageSize() - 1) / BufferPool.getPageSize());
     }
 
     /**
@@ -69,7 +67,7 @@ public class HeapFile implements DbFile {
     // see DbFile.java for javadocs
     public Page readPage(PageId pid) {
         // some code goes here
-        if (pid.getPageNumber() < 0 || pid.getPageNumber() >= this.numPages) {
+        if (pid.getPageNumber() < 0 || pid.getPageNumber() >= this.numPages()) {
             throw new NoSuchElementException(String.format("Page number: %d doesn't exist", pid.getPageNumber()));
         }
         RandomAccessFile fin = null;
@@ -124,7 +122,7 @@ public class HeapFile implements DbFile {
      */
     public int numPages() {
         // some code goes here
-        return this.numPages;
+        return (int)((this.file.length() + BufferPool.getPageSize() - 1) / BufferPool.getPageSize());
     }
 
     // see DbFile.java for javadocs
@@ -134,15 +132,11 @@ public class HeapFile implements DbFile {
         // not necessary for lab1
         for (int i = 0; i <= this.numPages(); i++) {
             HeapPageId hpId = new HeapPageId(getId(), i);  // HeapFile id is associated with table id
-            HeapPage page = i < this.numPages ?
+            HeapPage page = i < this.numPages() ?
                     (HeapPage) Database.getBufferPool().getPage(tid, hpId, Permissions.READ_WRITE) :
                     new HeapPage(new HeapPageId(this.getId(), i), HeapPage.createEmptyPageData());
             if (page.getNumEmptySlots() > 0) {
-                if (i == this.numPages()) {
-                    this.numPages++;
-                }
                 page.insertTuple(t);
-                page.markDirty(true, tid);
                 this.writePage(page);
                 return new ArrayList<>(Collections.singletonList(page));
             }
@@ -160,7 +154,6 @@ public class HeapFile implements DbFile {
         }
         HeapPage page = (HeapPage) Database.getBufferPool().getPage(tid, pid, Permissions.READ_WRITE);
         page.deleteTuple(t);
-        page.markDirty(true, tid);
         return new ArrayList<>(Collections.singleton(page));
     }
 
