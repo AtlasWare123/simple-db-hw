@@ -10,7 +10,7 @@ public class Insert extends Operator {
 
     private static final long serialVersionUID = 1L;
 
-    final private TupleDesc td = new TupleDesc(new Type[]{Type.INT_TYPE});
+    private final TupleDesc td = new TupleDesc(new Type[] { Type.INT_TYPE });
 
     private TransactionId tid;
     private OpIterator child;
@@ -84,11 +84,10 @@ public class Insert extends Operator {
             return null;
         }
         this.called = true;
-        DbFile dbFile = Database.getCatalog().getDatabaseFile(this.tableId);
         int cnt = 0;
         while (this.child.hasNext()) {
             try {
-                dbFile.insertTuple(this.tid, this.child.next());
+                Database.getBufferPool().insertTuple(this.tid, this.tableId, this.child.next());
                 cnt++;
             } catch (IOException e) {
                 e.printStackTrace();
