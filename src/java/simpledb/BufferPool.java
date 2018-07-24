@@ -1,11 +1,10 @@
 package simpledb;
 
-import java.io.*;
-
-import java.util.Iterator;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * BufferPool manages the reading and writing of pages into memory from
@@ -32,6 +31,7 @@ public class BufferPool {
     private static int pageSize = DEFAULT_PAGE_SIZE;
 
     private Map<PageId, Page> pageIdToPage;
+    private List<PageId> pageIds;
     private int numPages;
 
     /**
@@ -42,6 +42,7 @@ public class BufferPool {
     public BufferPool(int numPages) {
         // some code goes here
         this.pageIdToPage = new ConcurrentHashMap<>(numPages);
+        this.pageIds = new CopyOnWriteArrayList<>();
         this.numPages = numPages;
     }
 
@@ -79,15 +80,13 @@ public class BufferPool {
         // some code goes here
         if (!this.pageIdToPage.containsKey(pid)) {
             if (this.pageIdToPage.size() >= this.numPages) {
-                Iterator<Map.Entry<PageId, Page>> iter = this.pageIdToPage.entrySet().iterator();
-                if (iter.hasNext()) {
-                    iter.remove();
-                } else {
-                    throw new DbException("Unable to remove an item in cache");
-                }
+                this.evictPage();
             }
             this.pageIdToPage.put(pid, Database.getCatalog().getDatabaseFile(pid.getTableId()).readPage(pid));
+        } else {
+            this.pageIds.remove(pid);
         }
+        this.pageIds.add(pid);
         return this.pageIdToPage.get(pid);
     }
 
@@ -200,7 +199,9 @@ public class BufferPool {
     public synchronized void flushAllPages() throws IOException {
         // some code goes here
         // not necessary for lab1
-
+        for (Page page : this.pageIdToPage.values()) {
+            this.flushPage(page.getId());
+        }
     }
 
     /**
@@ -214,6 +215,10 @@ public class BufferPool {
     public synchronized void discardPage(PageId pid) {
         // some code goes here
         // not necessary for lab1
+        if (this.pageIdToPage.containsKey(pid)) {
+            this.pageIdToPage.remove(pid);
+            this.pageIds.remove(pid);
+        }
     }
 
     /**
@@ -224,6 +229,10 @@ public class BufferPool {
     private synchronized void flushPage(PageId pid) throws IOException {
         // some code goes here
         // not necessary for lab1
+        Page page = this.pageIdToPage.get(pid);
+        DbFile dbFile = Database.getCatalog().getDatabaseFile(page.getId().getTableId());
+        dbFile.writePage(page);
+        page.markDirty(false, null);
     }
 
     /**
@@ -241,6 +250,30 @@ public class BufferPool {
     private synchronized void evictPage() throws DbException {
         // some code goes here
         // not necessary for lab1
+        if (this.pageIds.size() <= 0) {
+            throw new DbException("Unable to evict a page");
+        }
+        PageId evictedPageId = null;
+        for (PageId pid : this.pageIds) {
+            Page page = this.pageIdToPage.get(pid);
+            if (page.isDirty() != null) {
+                try {
+                    this.flushPage(pid);
+                    evictedPageId = pid;
+                    break;
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            } else {
+                evictedPageId = pid;
+                break;
+            }
+        }
+        if (evictedPageId == null) {
+            throw new DbException("Failed to evict a page");
+        }
+        this.pageIds.remove(evictedPageId);
+        this.pageIdToPage.remove(evictedPageId);
     }
 
 }
