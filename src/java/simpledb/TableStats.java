@@ -21,6 +21,12 @@ public class TableStats {
     static final int NUM_HIST_BINS = 100;
     private static final ConcurrentHashMap<String, TableStats> statsMap = new ConcurrentHashMap<String, TableStats>();
 
+    private Object[] histograms;
+    private TupleDesc td;
+    private int ioCostPerPage;
+    private int numPages;
+    private int numTuples;
+
     /**
      * Create a new TableStats object, that keeps track of statistics on each
      * column of a table
@@ -38,6 +44,70 @@ public class TableStats {
         // necessarily have to (for example) do everything
         // in a single scan of the table.
         // some code goes here
+        this.ioCostPerPage = ioCostPerPage;
+        DbFile dbFile = Database.getCatalog().getDatabaseFile(tableid);
+        this.numPages = ((HeapFile)dbFile).numPages();
+        this.numTuples = 0;
+        this.td = dbFile.getTupleDesc();
+        int[] mins = new int[this.td.numFields()];
+        int[] maxs = new int[this.td.numFields()];
+        this.histograms = new Object[this.td.numFields()];
+        for (int i=0; i<this.td.numFields(); i++) {
+            if (this.td.getFieldType(i) == Type.INT_TYPE) {
+                mins[i] = Integer.MAX_VALUE;
+                maxs[i] = Integer.MIN_VALUE;
+            }
+        }
+
+        DbFileIterator iter = dbFile.iterator(new TransactionId());
+        // calculate min, max value for each column
+        try {
+            iter.open();
+            while (iter.hasNext()) {
+                Tuple tuple = iter.next();
+                this.numTuples++;
+                for (int i=0; i<td.numFields(); i++) {
+                    if (this.td.getFieldType(i) == Type.INT_TYPE) {
+                        mins[i] = Math.min(mins[i], ((IntField)tuple.getField(i)).getValue());
+                        maxs[i] = Math.max(maxs[i], ((IntField)tuple.getField(i)).getValue());
+                    }
+                }
+            }
+        } catch (TransactionAbortedException | DbException e) {
+            throw new RuntimeException(e);
+        }
+
+        // init histograms
+        for (int i=0; i<this.td.numFields(); i++) {
+            if (this.td.getFieldType(i) == Type.INT_TYPE) {
+                this.histograms[i] = new IntHistogram(NUM_HIST_BINS, mins[i], maxs[i]);
+            } else if (this.td.getFieldType(i) == Type.STRING_TYPE) {
+                this.histograms[i] = new StringHistogram(NUM_HIST_BINS);
+            } else {
+                throw new UnknownError("Unknown type: " + this.td.getFieldType(i));
+            }
+        }
+
+        // add values to histograms
+        try {
+            iter.rewind();
+            while (iter.hasNext()) {
+                Tuple tuple = iter.next();
+                for (int i=0; i<this.td.numFields(); i++) {
+                    if (this.td.getFieldType(i) == Type.INT_TYPE) {
+                        ((IntHistogram)this.histograms[i]).addValue(((IntField)tuple.getField(i)).getValue());
+                    } else if (this.td.getFieldType(i) == Type.STRING_TYPE) {
+                        ((StringHistogram)this.histograms[i]).addValue(((StringField)tuple.getField(i)).getValue());
+                    } else {
+                        throw new UnknownError("Unknown type: " + this.td.getFieldType(i));
+                    }
+                }
+            }
+        } catch (TransactionAbortedException | DbException e) {
+            throw new RuntimeException(e);
+        } finally {
+            iter.close();
+        }
     }
 
     public static TableStats getTableStats(String tablename) {
@@ -94,7 +164,7 @@ public class TableStats {
      */
     public double estimateScanCost() {
         // some code goes here
-        return 0;
+        return this.ioCostPerPage * this.numPages;
     }
 
     /**
@@ -107,7 +177,7 @@ public class TableStats {
      */
     public int estimateTableCardinality(double selectivityFactor) {
         // some code goes here
-        return 0;
+        return (int)(selectivityFactor * this.numTuples);
     }
 
     /**
@@ -136,7 +206,13 @@ public class TableStats {
      */
     public double estimateSelectivity(int field, Predicate.Op op, Field constant) {
         // some code goes here
-        return 1.0;
+        if (this.td.getFieldType(field) == Type.INT_TYPE) {
+            return ((IntHistogram)this.histograms[field]).estimateSelectivity(op, ((IntField)constant).getValue());
+        } else if (this.td.getFieldType(field) == Type.STRING_TYPE) {
+            return ((StringHistogram)this.histograms[field]).estimateSelectivity(op, ((StringField)constant).getValue());
+        } else {
+            throw new UnknownError("Unknown type: " + this.td.getFieldType(field));
+        }
     }
 
     /**
@@ -144,7 +220,7 @@ public class TableStats {
      */
     public int totalTuples() {
         // some code goes here
-        return 0;
+        return this.numTuples;
     }
 
 }

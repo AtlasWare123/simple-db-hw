@@ -5,6 +5,12 @@ package simpledb;
  */
 public class IntHistogram {
 
+    private int[] buckets;  // h
+    private int min;
+    private int max;
+    private double interval;  // w
+    private int ntups;
+
     /**
      * Create a new IntHistogram.
      * This IntHistogram should maintain a histogram of integer values that it receives.
@@ -20,6 +26,11 @@ public class IntHistogram {
      */
     public IntHistogram(int buckets, int min, int max) {
         // some code goes here
+        this.buckets = new int[buckets];
+        this.min = min;
+        this.max = max;
+        this.interval = (max - min) * 1.0 / buckets;
+        this.ntups = 0;
     }
 
     /**
@@ -29,6 +40,12 @@ public class IntHistogram {
      */
     public void addValue(int v) {
         // some code goes here
+        this.buckets[getIndexByValue(v)]++;
+        this.ntups++;
+    }
+
+    private int getIndexByValue(int v) {
+        return v == max ? this.buckets.length - 1 : (int)((v - this.min) / this.interval);
     }
 
     /**
@@ -41,9 +58,37 @@ public class IntHistogram {
      * @return Predicted selectivity of this particular operator and value
      */
     public double estimateSelectivity(Predicate.Op op, int v) {
-
         // some code goes here
-        return -1.0;
+        switch (op) {
+        case EQUALS:
+            if (v < this.min || v > this.max) {
+                return 0.0;
+            }
+            return this.buckets[getIndexByValue(v)] * 1.0 / ((int)this.interval + 1) / this.ntups;
+        case LESS_THAN:
+            if (v <= this.min) {
+                return 0.0;
+            } else if (v >= this.max) {
+                return 1.0;
+            }
+            int idx = getIndexByValue(v);
+            int sum = 0;
+            for (int i=0; i<idx; i++) {
+                sum += this.buckets[i];
+            }
+            double left = this.min + idx * this.interval;
+            return (sum + (v - left) / this.interval * this.buckets[idx]) / this.ntups;
+        case LESS_THAN_OR_EQ:
+            return estimateSelectivity(Predicate.Op.LESS_THAN, v + 1);
+        case GREATER_THAN:
+            return 1.0 - estimateSelectivity(Predicate.Op.LESS_THAN, v + 1);
+        case GREATER_THAN_OR_EQ:
+            return 1.0 - estimateSelectivity(Predicate.Op.LESS_THAN, v);
+        case NOT_EQUALS:
+            return 1.0 - estimateSelectivity(Predicate.Op.EQUALS, v);
+        default:
+            return -1.0;
+        }
     }
 
     /**
@@ -62,6 +107,10 @@ public class IntHistogram {
      */
     public String toString() {
         // some code goes here
-        return null;
+        StringBuilder sb = new StringBuilder();
+        for (int i=0; i<this.buckets.length; i++) {
+            sb.append(String.format("Bucket %d: %d\n", i, this.buckets[i]));
+        }
+        return sb.toString();
     }
 }
