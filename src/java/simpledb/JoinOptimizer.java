@@ -1,9 +1,15 @@
 package simpledb;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Set;
+import java.util.Vector;
 
 import javax.swing.*;
-import javax.swing.tree.*;
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.DefaultTreeCellRenderer;
 
 /**
  * The JoinOptimizer class is responsible for ordering a series of joins
@@ -196,7 +202,25 @@ public class JoinOptimizer {
 
         // some code goes here
         //Replace the following
-        return joins;
+        PlanCache planCache = new PlanCache();
+        for (int i=1; i<=this.joins.size(); i++) {
+            for (Set<LogicalJoinNode> subSet : this.enumerateSubsets(this.joins, i)) {
+                CostCard bestCostCard = new CostCard();
+                bestCostCard.cost = Double.MAX_VALUE;
+                for (LogicalJoinNode node : subSet) {
+                    CostCard curCostCard = this.computeCostAndCardOfSubplan(stats, filterSelectivities, node, subSet,
+                            bestCostCard.cost, planCache);
+                    if (curCostCard != null && curCostCard.cost < bestCostCard.cost) {
+                        bestCostCard = curCostCard;
+                    }
+                }
+                planCache.addPlan(subSet, bestCostCard.cost, bestCostCard.card, bestCostCard.plan);
+            }
+        }
+        if (explain) {
+            this.printJoins(this.joins, planCache, stats, filterSelectivities);
+        }
+        return planCache.getOrder(new HashSet<>(joins));
     }
 
     // ===================== Private Methods =================================
