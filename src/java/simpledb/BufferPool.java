@@ -33,6 +33,7 @@ public class BufferPool {
     private Map<PageId, Page> pageIdToPage;
     private List<PageId> pageIds;
     private int numPages;
+    private LockManager lockMgr;
 
     /**
      * Creates a BufferPool that caches up to numPages pages.
@@ -44,6 +45,7 @@ public class BufferPool {
         this.pageIdToPage = new ConcurrentHashMap<>(numPages);
         this.pageIds = new CopyOnWriteArrayList<>();
         this.numPages = numPages;
+        this.lockMgr = new LockManager();
     }
 
     public static int getPageSize() {
@@ -78,6 +80,7 @@ public class BufferPool {
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
             throws TransactionAbortedException, DbException {
         // some code goes here
+        this.lockMgr.aquireLock(tid, pid, perm);
         if (!this.pageIdToPage.containsKey(pid)) {
             if (this.pageIdToPage.size() >= this.numPages) {
                 this.evictPage();
@@ -102,6 +105,7 @@ public class BufferPool {
     public void releasePage(TransactionId tid, PageId pid) {
         // some code goes here
         // not necessary for lab1|lab2
+        this.lockMgr.releaseLock(tid, pid);
     }
 
     /**
@@ -112,6 +116,7 @@ public class BufferPool {
     public void transactionComplete(TransactionId tid) throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
+        this.transactionComplete(tid, true);
     }
 
     /**
@@ -120,7 +125,7 @@ public class BufferPool {
     public boolean holdsLock(TransactionId tid, PageId p) {
         // some code goes here
         // not necessary for lab1|lab2
-        return false;
+        return this.lockMgr.holdsLock(tid, p);
     }
 
     /**
@@ -133,6 +138,17 @@ public class BufferPool {
     public void transactionComplete(TransactionId tid, boolean commit) throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
+        if (commit) {
+            this.flushPages(tid);
+        } else {
+            for (PageId pid : this.lockMgr.getLockedPageIdSet(tid)) {
+                Page page = this.pageIdToPage.getOrDefault(pid, null);
+                if (page != null && page.isDirty() != null) {
+                    this.discardPage(pid);
+                }
+            }
+        }
+        this.lockMgr.releaesLock(tid);
     }
 
     /**
