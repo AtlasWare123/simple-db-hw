@@ -272,15 +272,7 @@ public class BufferPool {
         PageId evictedPageId = null;
         for (PageId pid : this.pageIds) {
             Page page = this.pageIdToPage.get(pid);
-            if (page.isDirty() != null) {
-                try {
-                    this.flushPage(pid);
-                    evictedPageId = pid;
-                    break;
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            } else {
+            if (page.isDirty() == null) {
                 evictedPageId = pid;
                 break;
             }
