@@ -148,7 +148,7 @@ public class BufferPool {
                 }
             }
         }
-        this.lockMgr.releaesLock(tid);
+        this.lockMgr.releaseLock(tid);
     }
 
     /**
@@ -216,7 +216,9 @@ public class BufferPool {
         // some code goes here
         // not necessary for lab1
         for (Page page : this.pageIdToPage.values()) {
-            this.flushPage(page.getId());
+            if (page.isDirty() != null) {
+                this.flushPage(page.getId());
+            }
         }
     }
 
@@ -257,6 +259,12 @@ public class BufferPool {
     public synchronized void flushPages(TransactionId tid) throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
+        for (PageId pid : this.lockMgr.getLockedPageIdSet(tid)) {
+            Page page = this.pageIdToPage.get(pid);
+            if (page != null && page.isDirty() != null) {
+                this.flushPage(pid);
+            }
+        }
     }
 
     /**

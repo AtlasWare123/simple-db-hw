@@ -1,7 +1,12 @@
 package simpledb;
 
-import java.io.*;
-import java.util.*;
+import java.io.File;
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
 
 /**
  * HeapFile is an implementation of a DbFile that stores a collection of tuples
@@ -137,7 +142,10 @@ public class HeapFile implements DbFile {
                     new HeapPage(new HeapPageId(this.getId(), i), HeapPage.createEmptyPageData());
             if (page.getNumEmptySlots() > 0) {
                 page.insertTuple(t);
-                this.writePage(page);
+                // flush newly created page to disk
+                if (i == this.numPages()) {
+                    this.writePage(page);
+                }
                 return new ArrayList<>(Collections.singletonList(page));
             }
         }
@@ -169,7 +177,7 @@ public class HeapFile implements DbFile {
                 this.curPage = 0;
                 while (this.curPage < numPages()) {
                     if (this.iter == null) {
-                        this.iter = ((HeapPage) Database.getBufferPool().getPage(null, new HeapPageId(getId(), this.curPage), null)).iterator();
+                        this.iter = ((HeapPage) Database.getBufferPool().getPage(tid, new HeapPageId(getId(), this.curPage), Permissions.READ_ONLY)).iterator();
                     }
                     if (!this.iter.hasNext()) {
                         this.curPage++;
@@ -197,7 +205,7 @@ public class HeapFile implements DbFile {
                 if (!this.iter.hasNext()) {
                     this.curPage++;
                     while (this.curPage < numPages()) {
-                        this.iter = ((HeapPage) Database.getBufferPool().getPage(null, new HeapPageId(getId(), this.curPage), null)).iterator();
+                        this.iter = ((HeapPage) Database.getBufferPool().getPage(tid, new HeapPageId(getId(), this.curPage), Permissions.READ_ONLY)).iterator();
                         if (!this.iter.hasNext()) {
                             this.curPage++;
                         } else {

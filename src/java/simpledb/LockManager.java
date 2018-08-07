@@ -12,17 +12,19 @@ public class LockManager {
     private Map<PageId, PageLock> pageIdToTid;
     private Map<TransactionId, Set<PageId>> tidToPageSet;
 
+    public enum LockType {
+        SLock,  // read only
+        XLock,  // read & write
+        UnLock  // unlock
+    }
+
     class PageLock {
-        public Set<TransactionId> readLockTidSet;
-        public TransactionId writeTid;
+        Set<TransactionId> lockTidSet;
+        LockType type;
 
         public PageLock() {
-            this.readLockTidSet = new HashSet<>();
-            this.writeTid = null;
-        }
-
-        public boolean canUpgrade(TransactionId tid) {
-            return this.writeTid == null && this.readLockTidSet.size() == 1 && this.readLockTidSet.contains(tid);
+            this.lockTidSet = new HashSet<>();
+            this.type = LockType.UnLock;
         }
     }
 
@@ -63,13 +65,11 @@ public class LockManager {
     private boolean aquireReadLock(TransactionId tid, PageId pid) {
         synchronized (pid) {
             PageLock pl = this.pageIdToTid.getOrDefault(pid, new PageLock());
-            if (pl.writeTid == tid) {
-                return true;
+            if (pl.type == LockType.XLock) {
+                return pl.lockTidSet.contains(tid);
             }
-            if (pl.writeTid != null) {
-                return false;
-            }
-            pl.readLockTidSet.add(tid);
+            pl.lockTidSet.add(tid);
+            pl.type = LockType.SLock;
             this.pageIdToTid.put(pid, pl);
             this.updateTransactionRecord(tid, pid);
             return true;
@@ -79,18 +79,13 @@ public class LockManager {
     private boolean aquireReadWriteLock(TransactionId tid, PageId pid) {
         synchronized (pid) {
             PageLock pl = this.pageIdToTid.getOrDefault(pid, new PageLock());
-            if (pl.writeTid != null && pl.writeTid != tid) {
-                return false;
+            if (pl.type == LockType.XLock) {
+                return pl.lockTidSet.contains(tid);
             }
-            // upgrade read lock to read/write lock
-            if (pl.canUpgrade(tid)) {
-                pl.writeTid = tid;
-                pl.readLockTidSet.remove(tid);
-                this.pageIdToTid.put(pid, pl);
-                return true;
-            }
-            if (pl.readLockTidSet.size() == 0) {
-                pl.writeTid = tid;
+            if ((pl.type == LockType.SLock && pl.lockTidSet.size() == 1 && pl.lockTidSet.contains(tid))
+                    || pl.type == LockType.UnLock) {
+                pl.lockTidSet.add(tid);
+                pl.type = LockType.XLock;
                 this.pageIdToTid.put(pid, pl);
                 this.updateTransactionRecord(tid, pid);
                 return true;
@@ -99,27 +94,38 @@ public class LockManager {
         }
     }
 
-    public void releaesLock(TransactionId tid) {
-        for (PageId pid : this.getLockedPageIdSet(tid)) {
-            this.releaseLock(tid, pid);
+    public void releaseLock(TransactionId tid) {
+        if (this.tidToPageSet.containsKey(tid)) {
+            for (PageId pid : this.tidToPageSet.get(tid)) {
+                synchronized (pid) {
+                    if (this.pageIdToTid.containsKey(pid)) {
+                        PageLock lock = this.pageIdToTid.get(pid);
+                        lock.lockTidSet.remove(tid);
+                        if (lock.lockTidSet.size() == 0) {
+                            lock.type = LockType.UnLock;
+                            this.pageIdToTid.remove(pid);
+                        }
+                    }
+                }
+            }
+            this.tidToPageSet.remove(tid);
         }
     }
 
     public void releaseLock(TransactionId tid, PageId pid) {
-        if (this.pageIdToTid.containsKey(pid)) {
-            PageLock pl = this.pageIdToTid.get(pid);
-            if (pl.writeTid == tid) {
-                pl.writeTid = null;
-            } else {
-                pl.readLockTidSet.remove(tid);
-            }
-            if (pl.writeTid == null && pl.readLockTidSet.isEmpty()) {
-                this.pageIdToTid.remove(pid);
-            }
-            if (this.tidToPageSet.containsKey(tid)) {
-                this.tidToPageSet.get(tid).remove(pid);
-                if (this.tidToPageSet.get(tid).isEmpty()) {
-                    this.tidToPageSet.remove(tid);
+        synchronized (pid) {
+            if (this.pageIdToTid.containsKey(pid)) {
+                PageLock pl = this.pageIdToTid.get(pid);
+                pl.lockTidSet.remove(tid);
+                if (pl.lockTidSet.size() == 0) {
+                    pl.type = LockType.UnLock;
+                    this.pageIdToTid.remove(pid);
+                }
+                if (this.tidToPageSet.containsKey(tid)) {
+                    this.tidToPageSet.get(tid).remove(pid);
+                    if (this.tidToPageSet.get(tid).isEmpty()) {
+                        this.tidToPageSet.remove(tid);
+                    }
                 }
             }
         }
