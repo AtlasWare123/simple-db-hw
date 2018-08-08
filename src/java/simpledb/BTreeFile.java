@@ -187,7 +187,32 @@ public class BTreeFile implements DbFile {
     private BTreeLeafPage findLeafPage(TransactionId tid, HashMap<PageId, Page> dirtypages, BTreePageId pid,
             Permissions perm, Field f) throws DbException, TransactionAbortedException {
         // some code goes here
-        return null;
+        if (pid.pgcateg() == BTreePageId.LEAF) {
+            return (BTreeLeafPage) this.getPage(tid, dirtypages, pid, perm);
+        }
+        BTreeInternalPage page = (BTreeInternalPage) this.getPage(tid, dirtypages, pid, perm);
+        Iterator<BTreeEntry> iter = page.iterator();
+        BTreeEntry entry;
+        try {
+            entry = iter.next();
+        } catch (Exception e) {
+            throw new DbException("Seems to be empty interal page");
+        }
+
+        if (f == null) {
+            return this.findLeafPage(tid, dirtypages, entry.getLeftChild(), perm, null);
+        }
+
+        while (iter.hasNext()) {
+            BTreeEntry cur = iter.next();
+            if (cur.getKey().compare(Op.GREATER_THAN, f)) {
+                break;
+            } else {
+                entry = cur;
+            }
+        }
+        BTreePageId nextPid = entry.getKey().compare(Op.GREATER_THAN, f) ? entry.getLeftChild() : entry.getRightChild();
+        return (BTreeLeafPage) this.getPage(tid, dirtypages, nextPid, perm);
     }
 
     /**
