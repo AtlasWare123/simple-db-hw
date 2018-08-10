@@ -196,7 +196,7 @@ public class BTreeFile implements DbFile {
         try {
             entry = iter.next();
         } catch (Exception e) {
-            throw new DbException("Seems to be empty interal page");
+            throw new DbException("Seems to be empty internal page");
         }
 
         if (f == null) {
