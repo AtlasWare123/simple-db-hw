@@ -138,14 +138,16 @@ public class BufferPool {
     public void transactionComplete(TransactionId tid, boolean commit) throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
-        if (commit) {
-            this.flushPages(tid);
-        } else {
-            for (PageId pid : this.lockMgr.getLockedPageIdSet(tid)) {
-                Page page = this.pageIdToPage.getOrDefault(pid, null);
-                if (page != null && page.isDirty() != null) {
+        for (PageId pid : this.lockMgr.getLockedPageIdSet(tid)) {
+            Page page = this.pageIdToPage.get(pid);
+            if (page != null) {
+                if (commit) {
+                    this.flushPage(pid);
+                    page.setBeforeImage();
+                } else {
                     this.discardPage(pid);
                 }
+                this.flushPage(pid);
             }
         }
         this.lockMgr.releaseLock(tid);
@@ -249,8 +251,13 @@ public class BufferPool {
         // not necessary for lab1
         Page page = this.pageIdToPage.get(pid);
         DbFile dbFile = Database.getCatalog().getDatabaseFile(page.getId().getTableId());
-        dbFile.writePage(page);
-        page.markDirty(false, null);
+        TransactionId dirtier = page.isDirty();
+        if (dirtier != null){
+            Database.getLogFile().logWrite(dirtier, page.getBeforeImage(), page);
+            Database.getLogFile().force();
+            dbFile.writePage(page);
+            page.markDirty(false, null);
+        }
     }
 
     /**
