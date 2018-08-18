@@ -454,6 +454,22 @@ public class LogFile {
             synchronized (this) {
                 preAppend();
                 // some code goes here
+                long firstRecordOffset = this.tidToFirstLogRecord.get(tid.getId());
+                this.raf.seek(this.raf.length() - LONG_SIZE);
+                long curRecordOffset = this.raf.readLong();
+                while (firstRecordOffset < curRecordOffset) {
+                    this.raf.seek(curRecordOffset);
+                    int recordType = this.raf.readInt();
+                    long recordTid = this.raf.readLong();
+                    if (recordType == UPDATE_RECORD && recordTid == tid.getId()) {
+                        Page beforePage = this.readPageData(this.raf);
+                        Database.getCatalog().getDatabaseFile(beforePage.getId().getTableId()).writePage(beforePage);
+                        Database.getBufferPool().discardPage(beforePage.getId());
+                    }
+                    this.raf.seek(curRecordOffset - LONG_SIZE);  // previous file offset
+                    curRecordOffset = this.raf.readLong();
+                }
+                this.raf.seek(this.currentOffset);
             }
         }
     }

@@ -249,6 +249,10 @@ public class BufferPool {
     private synchronized void flushPage(PageId pid) throws IOException {
         // some code goes here
         // not necessary for lab1
+        if (!this.pageIdToPage.containsKey(pid)) {
+            Debug.log(String.format("PID: %s doesn't exist in buffer", pid));
+            return;
+        }
         Page page = this.pageIdToPage.get(pid);
         DbFile dbFile = Database.getCatalog().getDatabaseFile(page.getId().getTableId());
         TransactionId dirtier = page.isDirty();
