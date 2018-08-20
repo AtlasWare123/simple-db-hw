@@ -176,7 +176,7 @@ public class IntegerAggregator implements Aggregator {
 
         // for no grouping
         if (groupByField == NO_GROUPING) {
-            TupleDesc td = new TupleDesc(new Type[] { groupByFieldType, Type.INT_TYPE });
+            TupleDesc td = new TupleDesc(new Type[] { Type.INT_TYPE });
             Tuple tuple = new Tuple(td);
             int sum = tuples.stream().mapToInt(item -> ((IntField)item.getField(aggregateField)).getValue()).sum();
             tuple.setField(0, new IntField(sum / tuples.size()));
@@ -209,7 +209,7 @@ public class IntegerAggregator implements Aggregator {
 
         // for no grouping
         if (groupByField == NO_GROUPING) {
-            TupleDesc td = new TupleDesc(new Type[] { groupByFieldType, Type.INT_TYPE });
+            TupleDesc td = new TupleDesc(new Type[] { Type.INT_TYPE });
             Tuple tuple = new Tuple(td);
             tuple.setField(0, new IntField(tuples.size()));
             return new TupleIterator(td, Collections.singletonList(tuple));
