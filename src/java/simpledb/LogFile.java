@@ -454,24 +454,34 @@ public class LogFile {
             synchronized (this) {
                 preAppend();
                 // some code goes here
-                long firstRecordOffset = this.tidToFirstLogRecord.get(tid.getId());
-                this.raf.seek(this.raf.length() - LONG_SIZE);
-                long curRecordOffset = this.raf.readLong();
-                while (firstRecordOffset < curRecordOffset) {
-                    this.raf.seek(curRecordOffset);
-                    int recordType = this.raf.readInt();
-                    long recordTid = this.raf.readLong();
-                    if (recordType == UPDATE_RECORD && recordTid == tid.getId()) {
-                        Page beforePage = this.readPageData(this.raf);
-                        Database.getCatalog().getDatabaseFile(beforePage.getId().getTableId()).writePage(beforePage);
-                        Database.getBufferPool().discardPage(beforePage.getId());
-                    }
-                    this.raf.seek(curRecordOffset - LONG_SIZE);  // previous file offset
-                    curRecordOffset = this.raf.readLong();
-                }
-                this.raf.seek(this.currentOffset);
+                this.rollBack(tid.getId());
             }
         }
+    }
+
+    /**
+     * Just rollback without any modification on log file
+     * @param tid
+     * @throws NoSuchElementException
+     * @throws IOException
+     */
+    private void rollBack(long tid) throws NoSuchElementException, IOException {
+        long firstRecordOffset = this.tidToFirstLogRecord.get(tid);
+        this.raf.seek(this.raf.length() - LONG_SIZE);
+        long curRecordOffset = this.raf.readLong();
+        while (firstRecordOffset < curRecordOffset) {
+            this.raf.seek(curRecordOffset);
+            int recordType = this.raf.readInt();
+            long recordTid = this.raf.readLong();
+            if (recordType == UPDATE_RECORD && recordTid == tid) {
+                Page beforePage = this.readPageData(this.raf);
+                Database.getCatalog().getDatabaseFile(beforePage.getId().getTableId()).writePage(beforePage);
+                Database.getBufferPool().discardPage(beforePage.getId());
+            }
+            this.raf.seek(curRecordOffset - LONG_SIZE);  // previous file offset
+            curRecordOffset = this.raf.readLong();
+        }
+        this.raf.seek(this.currentOffset);
     }
 
     /** Shutdown the logging system, writing out whatever state
@@ -497,8 +507,93 @@ public class LogFile {
             synchronized (this) {
                 recoveryUndecided = false;
                 // some code goes here
+
+                // get the last written checkpoint
+                this.currentOffset = this.raf.length();
+                this.raf.seek(0);
+                long lastWrittenCheckpoint = this.raf.readLong();
+
+                // set offset to start of log file if there is no written checkpoint
+                // skip first long size.
+                if (lastWrittenCheckpoint == NO_CHECKPOINT_ID) {
+                    lastWrittenCheckpoint = LONG_SIZE;
+                }
+
+                // read all offsets that submit after last written checkpoint.
+                Stack<Long> offsets = this.getFileOffsets(lastWrittenCheckpoint);
+
+                // redo updates and build the set of loser transactions
+                Set<Long> transactions = new HashSet<>();
+                while (!offsets.empty()) {
+                    long offset = offsets.pop();
+                    this.raf.seek(offset);
+                    int type = this.raf.readInt();
+                    long tid = this.raf.readLong();
+                    switch (type) {
+                    case ABORT_RECORD:
+                        this.rollBack(tid);
+                        transactions.remove(tid);
+                        break;
+                    case COMMIT_RECORD:
+                        this.tidToFirstLogRecord.remove(tid);
+                        transactions.remove(tid);
+                        break;
+                    case BEGIN_RECORD:
+                        this.tidToFirstLogRecord.put(tid, offset);
+                        transactions.add(tid);
+                        break;
+                    case UPDATE_RECORD:  // redo
+                        this.readPageData(this.raf);  // skip before page
+                        Page afterPage = this.readPageData(this.raf);
+                        Database.getCatalog().getDatabaseFile(afterPage.getId().getTableId()).writePage(afterPage);
+                        break;
+                    case CHECKPOINT_RECORD:
+                        // this checkpoint may contain dirty data
+                        // eg: t1 starts and updates data before checkpoint, never commit or abort before crash
+                        int transCount = this.raf.readInt();
+                        for (int i=0; i<transCount; i++) {
+                            tid = this.raf.readLong();
+                            long pos = this.raf.readLong();
+                            transactions.add(tid);
+                            this.tidToFirstLogRecord.put(tid, pos);
+                        }
+                        break;
+                    default:
+                        throw new IOException("Invalid record type");
+                    }
+                }
+
+                // undo the updates of loser transaction
+                // loser: only appears in BEGIN_RECORD but not in COMMIT_RECORD or ABORT_RECORD
+                for (long tid : transactions) {
+                    this.rollBack(tid);
+                }
             }
         }
+    }
+
+    /**
+     * Since it reads from back to front, we use stack to store all offset,
+     * so that all offsets will be processed from front to back later.
+     * Also include the offset of last written checkpoint because it may contains dirty pages
+     *
+     * @param start offset of last written checkpoint or start of log file (not include first long size which indicate checkpoint)
+     * @return
+     * @throws IOException
+     */
+    private Stack<Long> getFileOffsets(long start) throws IOException {
+        this.raf.seek(this.raf.length() - LONG_SIZE);
+        long offset = this.raf.readLong();
+        Stack<Long> res = new Stack<>();
+        while (offset >= start) {
+            res.push(offset);
+            if (offset <= LONG_SIZE) {
+                break;
+            }
+            this.raf.seek(offset - LONG_SIZE);
+            offset = this.raf.readLong();
+        }
+        return res;
     }
 
     /** Print out a human readable represenation of the log */
